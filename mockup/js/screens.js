@@ -1,10 +1,36 @@
-import { SAMPLE, AIS, TRADES, GOALS, OTHER, TOOLS, PAY, RECOMMENDED, company } from "./state.js";
+import { SAMPLE, AIS, TRADES, GOALS, ASKS, askById, understand, TOOLS, PAY, RECOMMENDED, company } from "./state.js";
 import { esc, status, note, btn, link, field, choice, row, switchCtl, action, toast, copyText, simulate } from "./ui.js";
 
 const STARTER = `Add Traque in your AI's settings, allow it, then say "set up Traque for my business".`;
 
-// Setup is six steps on Solo, seven on Company (company services is Company-only).
-export const SETUP = (s) => company() ? ["ai", "business", "goal", "phone", "other", "team", "services"] : ["ai", "business", "goal", "phone", "other", "team"];
+// Setup is seven steps on Solo, eight on Company (company services is Company-only).
+// Order: business review first, then calendar (on its own, not through Zapier), then the phone, then "build the rest" with Zapier.
+export const SETUP = (s) => company() ? ["ai", "business", "goal", "calendar", "phone", "other", "team", "services"] : ["ai", "business", "goal", "calendar", "phone", "other", "team"];
+
+/* The company’s one Zapier account. Shown under Company services and More › Company connections.
+   The key field is a masked placeholder; the typed value is never stored, only that one was saved. */
+export function zapierKey(s) {
+  const z = s.coZap;
+  return `<section class="stack-sm">
+    <div class="row row--plain"><span class="row__body"><span class="row__title">Your company’s Zapier</span><span class="row__sub">One account for the whole team. They use it without ever seeing the key.</span></span><span class="row__end">${status(z.state)}</span></div>
+    ${z.saved
+      ? note("green", `<strong>Key saved and checked.</strong> Everyone on the team connects through it now. ${btn("Replace the key", "zapreplace", { kind: "btn--quiet btn--sm" })}`)
+      : `<div class="prefix"><input class="input mono" id="zap-key" type="password" autocomplete="off" aria-label="Zapier key" placeholder="••••••••••••••••" style="flex: 1 1 8rem">${btn("Save", "zapsave", { kind: "btn--sm", attrs: 'data-for="zap-key"' })}</div>
+         <p class="small muted">Paste the key from your Zapier account. We check it once, then keep it locked away. ${btn("Don’t have Zapier? Get an account", "zapget", { kind: "btn--quiet btn--sm" })}</p>`}
+  </section>`;
+}
+export const zapierKeyActions = {
+  async zapsave(s, el) {
+    const input = document.getElementById(el.dataset.for);
+    if (!input || !input.value.trim()) { toast("Paste your Zapier key first."); return false; }
+    input.value = "";
+    await simulate(el, 1100);
+    s.coZap = { saved: true, state: "connected" };
+    toast("Key checked with Zapier. The team can use it now.");
+  },
+  zapreplace(s) { s.coZap = { saved: false, state: "not-connected" }; if (s.zap.stage === "connected") s.zap.stage = "review"; },
+  zapget() { toast("Would open zapier.com to make an account. Not in this sample."); return false; },
+};
 export function stepOf(s, id) { const list = SETUP(s); const i = list.indexOf(id); return i < 0 ? null : { n: i + 1, of: list.length, prev: list[i - 1], next: list[i + 1] || "done" }; }
 
 function head(s, id, title, lead) {
@@ -29,7 +55,7 @@ export const welcome = {
         </div>
       </section>
       <section class="hsec"><h2>How it works</h2>
-        <ol class="steps"><li><span class="n">1</span>Pick your AI and tell it about your business.</li><li><span class="n">2</span>Connect your phone and send yourself a test.</li><li><span class="n">3</span>Add your team if you have one.</li></ol>
+        <ol class="steps"><li><span class="n">1</span>Pick your AI and tell it about your business.</li><li><span class="n">2</span>Connect your calendar and phone. Send yourself a test.</li><li><span class="n">3</span>Say what else you want built. Zapier connects it.</li><li><span class="n">4</span>Add your team if you have one.</li></ol>
       </section>
       <section class="hsec" id="plans"><h2>Two plans</h2>
         <div class="plans">
@@ -110,13 +136,39 @@ export const goal = {
         <input class="range" type="range" min="2" max="30" step="1" aria-label="Minutes to wait" data-bind="goal.wait" data-type="number" data-rerender value="${g.wait}">
         ${switchCtl("Also text back when I miss a call", "goal.missed", g.missed)}
       </div>
-      ${action(link("Next", next(s, "goal"), "btn btn--primary"), "Nothing is sent until you test it in the next step.")}
+      ${action(link("Next", next(s, "goal"), "btn btn--primary"), "Nothing is sent until you test it on your phone.")}
     </div>`;
   },
   actions: { pick(s, el) { const g = el.dataset.g; const i = s.goal.picks.indexOf(g); if (i >= 0) s.goal.picks.splice(i, 1); else s.goal.picks.push(g); } },
 };
 
-/* ---------- 4 · Connect your phone ---------- */
+/* ---------- 4 · Connect your calendar ---------- */
+export const calendar = {
+  id: "calendar", title: "Connect your calendar", addr: "traque.com/start/calendar",
+  render(s) {
+    const c = s.cal; const name = c.kind === "google" ? "Google Calendar" : "Outlook calendar";
+    return `<div class="screen">
+      ${head(s, "calendar", "Connect your calendar", "So Traque knows when you’re booked. It only reads. It never adds or moves anything.")}
+      <div class="choices" role="radiogroup" aria-label="Which calendar">${choice("Google", "", { action: "kind", attrs: 'data-k="google"', on: c.kind === "google" })}${choice("Outlook", "", { action: "kind", attrs: 'data-k="outlook"', on: c.kind === "outlook" })}</div>
+      <div class="stack" style="margin-top: var(--space-xl)">
+        <div class="row row--plain"><span class="row__body"><span class="row__title">${esc(name)}</span></span><span class="row__end">${status(c.state)}</span></div>
+        ${c.state === "waiting" ? note("amber", `<strong>Waiting on you.</strong> ${esc(name)} opened in a new tab (sample). Say yes there, then come back and press <strong>Check</strong>.`) : ""}
+        ${c.state === "connected" ? note("green", `<strong>Connected.</strong> Traque can see when you’re busy. Checked just now.`) : ""}
+      </div>
+      ${c.state === "connected" ? action(link("Next", next(s, "calendar"), "btn btn--primary"), "", btn("Disconnect", "off", { kind: "btn--quiet btn--sm" }))
+        : c.state === "waiting" ? action(btn("Check", "check", { kind: "btn--primary" }), "It says Connected only once our check works.", `<a class="linkline" href="${next(s, "calendar")}">Do this later</a>`)
+        : action(btn(`Connect ${c.kind === "google" ? "Google" : "Outlook"}`, "on", { kind: "btn--primary" }), "You sign in with them, not with us.", `<a class="linkline" href="${next(s, "calendar")}">Do this later</a>`)}
+    </div>`;
+  },
+  actions: {
+    kind(s, el) { s.cal.kind = el.dataset.k; s.cal.state = "not-connected"; },
+    async on(s, el) { await simulate(el, 600); s.cal.state = "waiting"; },
+    async check(s, el) { await simulate(el, 900); s.cal.state = "connected"; },
+    off(s) { s.cal.state = "not-connected"; },
+  },
+};
+
+/* ---------- 5 · Connect your phone ---------- */
 export const phone = {
   id: "phone", title: "Connect your phone", addr: "traque.com/start/phone",
   render(s) {
@@ -149,42 +201,93 @@ export const phone = {
   },
 };
 
-/* ---------- 5 · Connect other services ---------- */
+/* ---------- 6 · Build the rest with Zapier ---------- */
+const escRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const inText = (s, id) => { const a = askById(id); return !!a && s.zap.text.toLowerCase().includes(a.say.toLowerCase()); };
 export const other = {
-  id: "other", title: "Connect other services", addr: "traque.com/start/services",
+  id: "other", title: "Build the rest with Zapier", addr: "traque.com/start/build",
   render(s) {
-    const co = company();
+    const co = company(); const emp = co && s.view !== "owner"; const z = s.zap;
     const tab = !co && s.recTab === "company" ? "traque" : s.recTab;
-    const coList = co ? [...TOOLS, ...RECOMMENDED.filter(r => s.coAdded.includes(r.id) && !TOOLS.some(t => t.id === r.id))] : [];
-    const coRecs = coList.map(t => { const pay = s.tools[t.id]?.pay || "suggest"; return { id: "co-" + t.id, name: t.name, sub: pay === "suggest" ? "Your company suggests it. You pay." : pay === "match" ? "Your company matches what you spend." : "Your company pays up to a set amount." }; });
-    const mine = [...RECOMMENDED, ...coRecs].filter(r => s.added.includes(r.id));
+    const coIds = co ? [...new Set(["jobber", ...TOOLS.map(t => t.id), ...s.coAdded])] : [];
+    const coRecs = coIds.map(id => { const a = askById(id); if (!a) return null; const pay = s.tools[id]?.pay; return { id, name: a.name, sub: id === "jobber" ? "Your company already connected it." : !pay || pay === "suggest" ? "Your company suggests it. You pay." : pay === "match" ? "Your company matches what you spend." : "Your company pays up to a set amount." }; }).filter(Boolean);
+    const mine = s.added.map(id => { const a = askById(id); return a && { id, name: a.name, sub: a.does }; }).filter(Boolean);
     const list = tab === "traque" ? RECOMMENDED : tab === "company" ? coRecs : mine;
-    const addRow = (r) => { const on = s.added.includes(r.id); return `<div class="row"><span class="row__body"><span class="row__title">${esc(r.name)}</span><span class="row__sub">${esc(r.sub)}</span></span><span class="row__end">${on ? `${status("not-connected", "On your list")}${btn("Remove", "unadd", { kind: "btn--quiet btn--sm", attrs: `data-id="${r.id}"` })}` : btn("Add", "add", { kind: "btn--sm", attrs: `data-id="${r.id}"` })}</span></div>`; };
-    return `<div class="screen">
-      ${head(s, "other", "Connect other services", "All optional. Your phone is the only one Traque needs.")}
-      <div class="rows">${OTHER.map(o => { const st = s.other[o.id]; return `<div class="row"><span class="row__body"><span class="row__title">${esc(o.name)}</span><span class="row__sub">${esc(o.sub)}</span></span><span class="row__end">${status(st)}${st === "connected" ? btn("Remove", "off", { kind: "btn--quiet btn--sm", attrs: `data-id="${o.id}"` }) : st === "waiting" ? btn("Check", "check", { kind: "btn--sm", attrs: `data-id="${o.id}"` }) : btn("Connect", "on", { kind: "btn--sm", attrs: `data-id="${o.id}"` })}</span></div>`; }).join("")}</div>
-      ${co && s.shared.length ? `<div class="stack-sm" style="margin-top: var(--space-xl)"><h2>Set up by your company</h2><p class="small muted">Nothing to sign in to. ${esc(s.biz.name)} connected these for the team.</p>
-        <div class="rows">${s.shared.map(c => `<div class="row"><span class="row__body"><span class="row__title">${esc(c.name)}</span><span class="row__sub">${esc(c.does)}</span></span><span class="row__end">${status(c.state)}</span></div>`).join("")}</div></div>` : ""}
-      <div class="stack-sm" style="margin-top: var(--space-xl)">
-        <h2>Skills and services, recommended by</h2>
-        <div class="seg" role="tablist" aria-label="Recommended by">${[["traque", "Traque"], ...(co ? [["company", "Your company"]] : []), ["mine", `You${mine.length ? ` (${mine.length})` : ""}`]].map(([k, l]) => `<button type="button" role="tab" aria-selected="${tab === k}" class="seg__btn ${tab === k ? "is-active" : ""}" data-action="tab" data-tab="${k}">${l}</button>`).join("")}</div>
-        <p class="small muted">${tab === "traque" ? "A short list Traque suggests for your trade. One tap adds it to your list. Nothing is connected until you set it up later." : tab === "company" ? `What ${esc(s.biz.name)} suggests or pays toward.` : "What you’ve added. Set each one up when you’re ready."}</p>
-        <div class="rows">${list.length ? list.map(addRow).join("") : `<div class="row"><span class="row__body"><span class="row__sub">${tab === "mine" ? "Nothing yet. Add one from the other lists." : "Nothing here yet."}</span></span></div>`}</div>
+    const addRow = (r) => { const on = inText(s, r.id); return `<div class="row"><span class="row__body"><span class="row__title">${esc(r.name)}</span><span class="row__sub">${esc(r.sub)}</span></span><span class="row__end">${on ? `${status("on", "In your words")}${btn("Take out", "unadd", { kind: "btn--quiet btn--sm", attrs: `data-id="${r.id}"` })}` : btn("Add", "add", { kind: "btn--sm", attrs: `data-id="${r.id}"` })}</span></div>`; };
+    const got = understand(z.text);
+    const zapState = co ? s.coZap.state : z.stage === "connected" ? "connected" : z.stage === "waiting" ? "waiting" : "not-connected";
+    const zapRow = `<div class="row row--plain"><span class="row__body"><span class="row__title">${co ? "Uses your company’s Zapier" : "Zapier"}</span><span class="row__sub">${co ? "Nothing to sign in to. Your company set it up once." : "Zapier is what reaches your other apps. You sign in to it once."}</span></span><span class="row__end">${status(zapState)}</span></div>`;
+    const summary = (done) => `<div class="stack-sm"><h2>${done ? "What it can do now" : "Here’s what it will be allowed to do"}</h2>
+      <div class="rows">${got.map(a => `<div class="row"><span class="row__body"><span class="row__title">${esc(a.name)}</span><span class="row__sub">${esc(a.does)}</span></span><span class="row__end">${status(done ? "connected" : "not-connected", done ? "Connected" : "Not yet")}</span></div>`).join("")}</div>
+      <p class="small muted">Nothing else. If it isn’t on this list, Traque can’t do it.</p></div>`;
+
+    let body, act;
+    if (z.stage === "edit") {
+      body = `<div class="stack">
+        ${field("What should Traque be able to do?", `<textarea class="textarea" id="zap-text" data-bind="zap.text" data-rerender rows="3" placeholder="Like: let it read new inquiries in my business email and text customers from Jobber.">${esc(z.text)}</textarea>`, "Plain words are fine. Traque and Zapier build it and read back what they understood before anything is allowed.", "zap-text")}
+        ${zapRow}
       </div>
-      ${action(link("Next", next(s, "other"), "btn btn--primary"), "You can add these any time under More.")}
+      <div class="stack-sm" style="margin-top: var(--space-xl)">
+        <h2>Ideas, recommended by</h2>
+        <div class="seg" role="tablist" aria-label="Recommended by">${[["traque", "Traque"], ...(co ? [["company", "Your company"]] : []), ["mine", `You${mine.length ? ` (${mine.length})` : ""}`]].map(([k, l]) => `<button type="button" role="tab" aria-selected="${tab === k}" class="seg__btn ${tab === k ? "is-active" : ""}" data-action="tab" data-tab="${k}">${l}</button>`).join("")}</div>
+        <p class="small muted">${tab === "traque" ? "A short list for your trade. One tap adds it to your words above. Nothing is connected by adding." : tab === "company" ? `What ${esc(s.biz.name)} suggests or pays toward.` : "What you’ve added so far."}</p>
+        <div class="rows">${list.length ? list.map(addRow).join("") : `<div class="row"><span class="row__body"><span class="row__sub">${tab === "mine" ? "Nothing yet. Add one from the other lists, or just type." : "Nothing here yet."}</span></span></div>`}</div>
+      </div>`;
+      act = action(btn("Build it", "build", { kind: "btn--primary", disabled: !z.text.trim() }), "", `<a class="linkline" href="${next(s, "other")}">Skip for now</a>`);
+    } else if (z.stage === "review") {
+      body = `<div class="stack">
+        <div class="row row--plain"><span class="row__body"><span class="row__title">You said</span><span class="row__sub">“${esc(z.text)}”</span></span></div>
+        ${got.length ? summary(false) : note("amber", "<strong>Traque didn’t catch an app in that.</strong> Name the app, like Jobber or QuickBooks, and try again.")}
+        ${zapRow}
+      </div>`;
+      act = got.length ? action(btn("Looks right", "ok", { kind: "btn--primary" }), co ? "" : "Zapier opens next so you can allow it there.", btn("Change", "change", { kind: "btn--quiet btn--sm" })) : action(btn("Change", "change", { kind: "btn--primary" }));
+    } else if (z.stage === "waiting") {
+      body = `<div class="stack">
+        ${summary(false)}
+        ${zapRow}
+        ${co ? note("amber", emp ? `<strong>Waiting on your company’s Zapier.</strong> Ask ${esc(SAMPLE.owner)} to add the key. This gets built as soon as it’s in.` : `<strong>Waiting on your company’s Zapier key.</strong> Add it once under Company services (step ${SETUP(s).indexOf("services") + 1}) or More › Company connections. This gets built as soon as it’s in.`)
+            : note("amber", `<strong>Waiting on you.</strong> Zapier opened in a new tab (sample). Sign in there and allow Traque, then come back and press <strong>Check</strong>. ${btn("Don’t have Zapier? Get an account", "zapget", { kind: "btn--quiet btn--sm" })}`)}
+      </div>`;
+      act = co ? action(link("Next", next(s, "other"), "btn btn--primary"), "", btn("Change", "change", { kind: "btn--quiet btn--sm" }))
+               : action(btn("Check", "check", { kind: "btn--primary" }), "It says Connected only once our check works.", btn("Change", "change", { kind: "btn--quiet btn--sm" }));
+    } else {
+      body = `<div class="stack">
+        ${note("green", `<strong>Built.</strong> Zapier connected it and our check worked.`)}
+        ${summary(true)}
+        ${zapRow}
+      </div>`;
+      act = action(link("Next", next(s, "other"), "btn btn--primary"), "", btn("Change", "change", { kind: "btn--quiet btn--sm" }));
+    }
+    return `<div class="screen">
+      ${head(s, "other", "Build the rest with Zapier", "Tell us what you want, in plain words. Traque and Zapier build it.")}
+      ${body}${act}
     </div>`;
   },
   actions: {
-    async on(s, el) { await simulate(el, 600); s.other[el.dataset.id] = "waiting"; toast("Sign in opened in a new tab (sample). Then press Check."); },
-    async check(s, el) { await simulate(el, 900); s.other[el.dataset.id] = "connected"; },
-    off(s, el) { s.other[el.dataset.id] = "not-connected"; },
     tab(s, el) { s.recTab = el.dataset.tab; },
-    add(s, el) { if (!s.added.includes(el.dataset.id)) s.added.push(el.dataset.id); },
-    unadd(s, el) { s.added = s.added.filter(x => x !== el.dataset.id); },
+    add(s, el) {
+      const a = askById(el.dataset.id); if (!a || inText(s, a.id)) return;
+      const t = s.zap.text.trim().replace(/\.\s*$/, "");
+      s.zap.text = t ? `${t}, ${a.say}.` : `Let it ${a.say}.`;
+      if (!s.added.includes(a.id)) s.added.push(a.id);
+    },
+    unadd(s, el) {
+      const a = askById(el.dataset.id); if (!a) return;
+      s.zap.text = s.zap.text.replace(new RegExp(`(,\\s*|\\s+and\\s+)?${escRe(a.say)}`, "i"), "").replace(/^Let it\s*\.?\s*$/i, "").replace(/,\s*\./, ".").trim();
+      s.added = s.added.filter(x => x !== a.id);
+    },
+    async build(s, el) { if (!s.zap.text.trim()) return false; await simulate(el, 1200); s.zap.stage = "review"; },
+    async ok(s, el) {
+      if (company()) { if (s.coZap.state === "connected") { await simulate(el, 1100); s.zap.stage = "connected"; } else { s.zap.stage = "waiting"; } return; }
+      await simulate(el, 600); s.zap.stage = "waiting"; toast("Zapier opened in a new tab (sample). Allow Traque there, then press Check.");
+    },
+    async check(s, el) { await simulate(el, 1000); s.zap.stage = "connected"; },
+    change(s) { s.zap.stage = "edit"; },
+    zapget: zapierKeyActions.zapget,
   },
 };
 
-/* ---------- 6 · Add people to your team ---------- */
+/* ---------- 7 · Add people to your team ---------- */
 export const team = {
   id: "team", title: "Add people to your team", addr: "traque.com/start/team",
   render(s) {
@@ -212,14 +315,15 @@ export const team = {
   },
 };
 
-/* ---------- 7 (Company) · Company services ---------- */
+/* ---------- 8 (Company) · Company services ---------- */
 export const services = {
   id: "services", title: "Company services", addr: "traque.com/start/company-services",
   render(s) {
     if (!company()) return `<div class="screen">${head(s, null, "Company services", "This step is for Company accounts.")}${note("", "On Solo you pay for your own tools. Switch to Company under More to set up services for a team.")}${action(link("Back", "#/done", "btn btn--primary"))}</div>`;
     return `<div class="screen">
-      ${head(s, "services", "Company services", "Connect a service once for the whole team, then say how you’ll handle the cost.")}
-      <div class="stack-lg">${[...TOOLS, ...RECOMMENDED.filter(r => s.coAdded.includes(r.id) && !TOOLS.some(t => t.id === r.id)).map(r => ({ ...r, sample: true }))].map(t => { const c = s.tools[t.id] || { state: "not-connected", pay: "suggest", cap: "" }; return `<section class="stack-sm">
+      ${head(s, "services", "Company services", "One Zapier account for the company. Then connect each service once for the whole team and say how you’ll handle the cost.")}
+      ${zapierKey(s)}
+      <div class="stack-lg" style="margin-top: var(--space-xl)">${[...TOOLS, ...RECOMMENDED.filter(r => s.coAdded.includes(r.id) && !TOOLS.some(t => t.id === r.id)).map(r => ({ ...r, sample: true }))].map(t => { const c = s.tools[t.id] || { state: "not-connected", pay: "suggest", cap: "" }; return `<section class="stack-sm">
         <div class="row row--plain"><span class="row__body"><span class="row__title">${esc(t.name)} ${t.sample ? status("sample") : ""}</span><span class="row__sub">${esc(t.sub)}</span></span><span class="row__end">${status(c.state)}${c.state === "connected" ? "" : c.state === "waiting" ? btn("Check", "check", { kind: "btn--sm", attrs: `data-id="${t.id}"` }) : btn("Connect", "on", { kind: "btn--sm", attrs: `data-id="${t.id}"` })}</span></div>
         <div class="choices" role="radiogroup" aria-label="How you’ll pay for ${esc(t.name)}">${Object.entries(PAY).map(([k, l]) => choice(l, k === "match" ? "We pay for it. Dollar for dollar, up to a limit." : k === "amount" ? "We pay for it. Up to a set amount per person." : "They see it. They pay.", { action: "pay", attrs: `data-id="${t.id}" data-pay="${k}"`, on: c.pay === k })).join("")}</div>
         ${c.pay !== "suggest" ? `<div class="prefix" style="max-width: 16rem"><span>${c.pay === "match" ? "Up to $" : "$"}</span><input class="input tabular" style="width: 5rem; flex: none" aria-label="Amount per person per month" inputmode="decimal" data-bind="tools.${t.id}.cap" value="${esc(c.cap)}"><span class="small muted" style="padding-inline: 0 var(--space-md)">a month each</span></div>` : ""}
@@ -234,6 +338,7 @@ export const services = {
     </div>`;
   },
   actions: {
+    ...zapierKeyActions,
     pay(s, el) { s.tools[el.dataset.id].pay = el.dataset.pay; },
     coadd(s, el) { const id = el.dataset.id; if (!s.coAdded.includes(id)) s.coAdded.push(id); if (!s.tools[id]) s.tools[id] = { state: "not-connected", pay: "suggest", cap: "" }; },
     counadd(s, el) { s.coAdded = s.coAdded.filter(x => x !== el.dataset.id); delete s.tools[el.dataset.id]; },
@@ -253,6 +358,7 @@ export const done = {
         ${row("Your phone", on ? `Connected · ${esc(SAMPLE.phone)}` : "Not connected yet", status(on ? "on" : "off"), "#/phone")}
         ${row("Your skills", "Builds itself as you work.", "", "#/skills")}
         ${row("Team view", company() ? "Who handled what, and what the team learned." : "Just you for now.", "", "#/teamview")}
+        ${row("Your public page", s.page.listed ? "Listed in the directory. Your doorman answers there." : "Not listed yet.", "", "#/page")}
         ${row("Rent, sell or copy your know-how", s.view === "owner" ? "Owner only." : "Managed by your company.", "", "#/owner")}
         ${row("More", "Plan, your public page, what Traque knows, and settings.", "", "#/more")}
       </div>

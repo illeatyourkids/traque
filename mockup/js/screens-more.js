@@ -1,4 +1,5 @@
 import { SAMPLE, LEARNED, SHARED_DOWN, SKILLS, company } from "./state.js";
+import { zapierKey, zapierKeyActions } from "./screens.js";
 import { esc, status, note, btn, link, field, choice, row, switchCtl, action, toast, simulate, copyText } from "./ui.js";
 
 /* ---------- Your skills (writes itself) ---------- */
@@ -38,7 +39,9 @@ export const more = {
         ${row("Your skills", "Writes itself as you work. Share it.", "", "#/skills")}
         ${row("What Traque knows", "Read or download what it’s learned.", "", "#/notes")}
         ${row("Your public page", `traque.com/${esc(SAMPLE.user)}`, status(s.page.listed ? "on" : "off", s.page.listed ? "Listed" : "Not listed"), "#/page")}
-        ${row("Other services", "Calendar, email, customer list.", "", "#/other")}
+        ${row("Your doorman", "The AI on your page. Who it talks to, what it shares.", "", "#/doorman")}
+        ${row("Your calendar", s.cal.kind === "google" ? "Google" : "Outlook", status(s.cal.state), "#/calendar")}
+        ${row("Build with Zapier", "Say what you want built, in plain words.", "", "#/other")}
         ${co ? row("Company services", "What the company pays for.", "", "#/services") : ""}
         ${co ? row("Company connections", "Set up once for the whole team.", "", "#/shared") : ""}
         ${co ? row("Look at it as", s.view === "owner" ? "Owner (you)" : "Mike R., tech", "", "#/viewas") : ""}
@@ -82,42 +85,6 @@ export const notes = {
   actions: { async dl(s, el) { await simulate(el, 900); s._dl = true; } },
 };
 
-export const page = {
-  id: "page", title: "Your public page", addr: `traque.com/${SAMPLE.user}`,
-  render(s) {
-    return `<div class="screen">
-      <div class="head">${back()}<h1>Your public page</h1><p>What a customer sees at traque.com/${esc(SAMPLE.user)}.</p></div>
-      <div class="stack" style="padding: var(--space-lg); border: var(--rule) solid var(--color-rule); border-radius: var(--radius-md); background: var(--color-surface)">
-        <h2 style="font-family: var(--font-display); font-weight: 500; font-size: var(--text-lg)">${esc(s.biz.name)}</h2>
-        <p>${esc(s.biz.trade)} · ${esc(s.biz.town)}</p>
-        <p class="small muted">Texts answered ${s.phone.tested ? "within about " + s.goal.wait + " minutes, even on a job" : "— set up not finished"}.</p>
-        <p class="small"><a href="#/page">Text ${esc(SAMPLE.phone)}</a></p>
-      </div>
-      <div style="margin-top: var(--space-xl)">${switchCtl("List me in the Traque directory", "page.listed", s.page.listed)}<p class="small muted">People looking for a ${esc(s.biz.trade.toLowerCase())} pro near ${esc(s.biz.town)} can find you.</p></div>
-      ${action(btn(s.page.saved ? "Saved" : "Save", "save", { kind: "btn--primary", disabled: s.page.saved }), "", `<a class="linkline" href="#/directory">See the directory</a>`)}
-    </div>`;
-  },
-  actions: { async save(s, el) { await simulate(el, 600); s.page.saved = true; setTimeout(() => { s.page.saved = false; }, 2000); } },
-};
-
-export const directory = {
-  id: "directory", title: "Directory", addr: "traque.com/directory",
-  render(s) {
-    const list = [
-      ...(s.page.listed ? [{ u: SAMPLE.user, biz: s.biz.name, trade: s.biz.trade, area: s.biz.town }] : []),
-      { u: "maria.delgado", biz: "Delgado Electric", trade: "Electrical", area: "Goshen, NY" },
-      { u: "tom.kowalski", biz: "Kowalski Plumbing", trade: "Plumbing", area: "Monroe, NY" },
-      { u: "ridgeline.roofing", biz: "Ridgeline Roofing", trade: "Roofing", area: "Chester, NY" },
-    ];
-    return `<div class="screen">
-      <div class="head">${back("#/welcome", "Traque")}<h1>Find a pro</h1><p>Businesses on Traque that chose to be listed. Sample.</p></div>
-      <div class="rows">${list.map(x => row(esc(x.biz), `${esc(x.trade)} · ${esc(x.area)} · traque.com/${esc(x.u)}`, "", `#/page`)).join("")}</div>
-      ${s.page.listed ? "" : `<p class="small muted" style="margin-top: var(--space-lg)">You’re not listed. <a href="#/page">Turn it on</a>.</p>`}
-    </div>`;
-  },
-  actions: {},
-};
-
 export const shared = {
   id: "shared", title: "Company connections", addr: "traque.com/more/company-connections",
   render(s) {
@@ -125,6 +92,8 @@ export const shared = {
     const d = s.sharedDraft;
     return `<div class="screen">
       <div class="head">${back()}<h1>Company connections</h1><p>Set up once. Everyone you choose gets it in their own Traque. They never see the company’s sign-in.</p></div>
+      ${zapierKey(s)}
+      <h2 style="margin-top: var(--space-xl)">Other connections</h2>
       <div class="rows">${s.shared.map(c => `<div class="row"><span class="row__body"><span class="row__title">${esc(c.name)}</span><span class="row__sub">${esc(c.does)} · for ${c.who.map(w => ({ owner: "owner", tech: "techs", office: "office" })[w]).join(", ")}${c.when ? ` · checked ${esc(c.when)}` : ""}</span></span><span class="row__end">${status(c.state)}${c.state === "waiting" ? btn("Check", "check", { kind: "btn--sm", attrs: `data-id="${c.id}"` }) : c.state === "connected" ? btn("Pause", "pause", { kind: "btn--quiet btn--sm", attrs: `data-id="${c.id}"` }) : btn("Resume", "pause", { kind: "btn--sm", attrs: `data-id="${c.id}"` })}</span></div>`).join("")}</div>
       ${s._add ? `<div class="stack" style="margin-top: var(--space-xl)">
         ${field("Name", `<input class="input" id="sh-name" data-bind="sharedDraft.name" data-rerender value="${esc(d.name)}" placeholder="e.g. Jobber">`, "", "sh-name")}
@@ -135,6 +104,7 @@ export const shared = {
     </div>`;
   },
   actions: {
+    ...zapierKeyActions,
     toggle(s) { s._add = !s._add; },
     add(s) { const d = s.sharedDraft; if (!d.name.trim() || !d.link.trim()) return false; s.shared.push({ id: "s" + Date.now(), name: d.name.trim(), does: "Not set yet", who: ["owner", "tech", "office"], state: "waiting", when: null }); s.sharedDraft = { name: "", link: "" }; s._add = false; },
     async check(s, el) { const c = s.shared.find(x => x.id === el.dataset.id); await simulate(el, 1000); if (!c._once) { c._once = true; toast("Still waiting on the provider. Nothing connected yet."); return; } c.state = "connected"; c.when = "just now"; },
