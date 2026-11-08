@@ -1,0 +1,263 @@
+import { SAMPLE, AIS, TRADES, GOALS, OTHER, TOOLS, PAY, RECOMMENDED, company } from "./state.js";
+import { esc, status, note, btn, link, field, choice, row, switchCtl, action, toast, copyText, simulate } from "./ui.js";
+
+const STARTER = `Add Traque in your AI's settings, allow it, then say "set up Traque for my business".`;
+
+// Setup is six steps on Solo, seven on Company (company services is Company-only).
+export const SETUP = (s) => company() ? ["ai", "business", "goal", "phone", "other", "team", "services"] : ["ai", "business", "goal", "phone", "other", "team"];
+export function stepOf(s, id) { const list = SETUP(s); const i = list.indexOf(id); return i < 0 ? null : { n: i + 1, of: list.length, prev: list[i - 1], next: list[i + 1] || "done" }; }
+
+function head(s, id, title, lead) {
+  const st = stepOf(s, id);
+  return `<div class="head">
+    ${st ? `<a class="back" href="#/${st.prev || "welcome"}">‹ Back</a><span class="stepcount">Step ${st.n} of ${st.of}</span>` : `<a class="back" href="#/done">‹ Back</a>`}
+    <h1>${title}</h1>${lead ? `<p>${lead}</p>` : ""}
+  </div>`;
+}
+const next = (s, id) => `#/${stepOf(s, id)?.next || "done"}`;
+
+/* ---------- 0 · Welcome ---------- */
+export const welcome = {
+  id: "welcome", title: "Welcome", addr: "traque.com",
+  render(s) {
+    return `<div class="home">
+      <section class="hero">
+        <h1>Miss a call on a job. Traque texts them back.</h1>
+        <div class="hero__side">
+          <p>In your words, from your own number. Set up by talking to the AI you already use.</p>
+          <div class="hero__cta">${link("Get started", "#/ai", "btn btn--primary")}<span class="small muted">Nothing goes out until you send yourself a test.</span></div>
+        </div>
+      </section>
+      <section class="hsec"><h2>How it works</h2>
+        <ol class="steps"><li><span class="n">1</span>Pick your AI and tell it about your business.</li><li><span class="n">2</span>Connect your phone and send yourself a test.</li><li><span class="n">3</span>Add your team if you have one.</li></ol>
+      </section>
+      <section class="hsec" id="plans"><h2>Two plans</h2>
+        <div class="plans">
+          <div class="plan ${s.plan === "solo" ? "plan--pick" : ""}"><h3>Solo</h3><p class="small">Just you and your phone.</p><div class="plan__price">$ — <small>a month · price not set</small></div>${btn(s.plan === "solo" ? "Selected" : "Choose Solo", "plan", { kind: "btn--sm", attrs: 'data-plan="solo"', disabled: s.plan === "solo" })}</div>
+          <div class="plan ${s.plan === "company" ? "plan--pick" : ""}"><h3>Company</h3><p class="small">You and the people who answer with you. Less per person.</p><div class="plan__price">$ — <small>a month · price not set</small></div>${btn(s.plan === "company" ? "Selected" : "Choose Company", "plan", { kind: "btn--sm btn--primary", attrs: 'data-plan="company"', disabled: s.plan === "company" })}</div>
+        </div>
+      </section>
+      <footer class="foot"><span>Traque</span><span>${esc(SAMPLE.town)}</span><a href="#/directory">Find a pro</a><span>Sample data. Nothing is sent.</span></footer>
+    </div>`;
+  },
+  actions: { plan(s, el) { s.plan = el.dataset.plan; s.biz.team = s.plan === "company"; } },
+};
+
+/* ---------- 1 · Pick your AI ---------- */
+export const ai = {
+  id: "ai", title: "Pick your AI", addr: "traque.com/start",
+  render(s) {
+    const st = s.aiState;
+    return `<div class="screen">
+      ${head(s, "ai", "Pick your AI", "Traque works inside the AI you already use.")}
+      <div class="choices" role="radiogroup" aria-label="Your AI">${Object.entries(AIS).map(([k, n]) => choice(n, "", { action: "pick", attrs: `data-ai="${k}"`, on: s.ai === k })).join("")}</div>
+      <div class="stack" style="margin-top: var(--space-xl)">
+        <div class="row row--plain"><span class="row__body"><span class="row__title">Traque in ${esc(AIS[s.ai])}</span></span><span class="row__end">${status(st)}</span></div>
+        ${st === "waiting" ? note("amber", `<strong>Waiting on you.</strong> ${esc(AIS[s.ai])} opened. Approve Traque there, then come back and press <strong>Check</strong>.`) : ""}
+        ${st === "connected" ? note("green", `<strong>Connected.</strong> ${esc(AIS[s.ai])} can talk to Traque now.`) : ""}
+        <p class="linkline muted">Can’t open it from here? ${btn("Copy the starter message", "copy", { kind: "btn--quiet btn--sm" })}</p>
+      </div>
+      ${st === "connected" ? action(link("Next", next(s, "ai"), "btn btn--primary"))
+        : st === "waiting" ? action(btn("Check", "check", { kind: "btn--primary" }), "", `<a class="linkline" href="${next(s, "ai")}">Skip for now</a>`)
+        : action(btn(`Open in ${esc(AIS[s.ai])}`, "open", { kind: "btn--primary" }), "Opening it doesn’t connect anything. You approve it there.")}
+    </div>`;
+  },
+  actions: {
+    pick(s, el) { s.ai = el.dataset.ai; s.aiState = "not-connected"; },
+    async open(s, el) { await simulate(el, 600); s.aiState = "waiting"; },
+    async check(s, el) { await simulate(el, 900); s.aiState = "connected"; },
+    async copy(s, el) { await copyText(STARTER, el); return false; },
+  },
+};
+
+/* ---------- 2 · Tell us your business ---------- */
+export const business = {
+  id: "business", title: "Tell us your business", addr: "traque.com/start/business",
+  render(s) {
+    const b = s.biz;
+    return `<div class="screen">
+      ${head(s, "business", "Tell us your business", "Short answers are fine.")}
+      <div class="stack">
+        ${field("Business name", `<input class="input" id="bz-name" data-bind="biz.name" value="${esc(b.name)}" autocomplete="organization">`, "", "bz-name")}
+        ${field("What you do", `<select class="select" id="bz-trade" data-bind="biz.trade">${TRADES.map(t => `<option ${b.trade === t ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`, "", "bz-trade")}
+        ${field("Town", `<input class="input" id="bz-town" data-bind="biz.town" value="${esc(b.town)}" autocomplete="address-level2">`, "", "bz-town")}
+        <div class="field"><span class="field__label">Who answers calls and texts?</span>
+          <div class="choices">${choice("Just me", "", { action: "team", attrs: 'data-v="0"', on: !b.team })}${choice("Me and other people", b.team ? `${b.count} other${b.count === 1 ? "" : "s"}` : "", { action: "team", attrs: 'data-v="1"', on: b.team })}</div>
+          ${b.team ? `<input class="range" type="range" min="1" max="10" aria-label="How many others" data-bind="biz.count" data-type="number" data-rerender value="${b.count}">` : ""}
+          <div class="field__help">${b.team && s.plan === "solo" ? `Other people answering fits the <strong>Company</strong> plan. ${btn("Switch to Company", "company", { kind: "btn--quiet btn--sm" })}` : b.team ? "You’re on Company. Each of them gets their own sign-in." : "You’re on Solo."}</div>
+        </div>
+      </div>
+      ${action(link("Next", next(s, "business"), "btn btn--primary"), "You can change any of this later.")}
+    </div>`;
+  },
+  actions: {
+    team(s, el) { s.biz.team = el.dataset.v === "1"; },
+    company(s) { s.plan = "company"; },
+  },
+};
+
+/* ---------- 3 · Why you’re using Traque ---------- */
+export const goal = {
+  id: "goal", title: "What you want it to do", addr: "traque.com/start/goal",
+  render(s) {
+    const g = s.goal;
+    return `<div class="screen">
+      ${head(s, "goal", "What do you want Traque to do?", "Pick what fits. Add your own words if you like.")}
+      <div class="choices">${GOALS.map(x => choice(x, "", { action: "pick", attrs: `data-g="${esc(x)}"`, on: g.picks.includes(x) })).join("")}</div>
+      <div class="stack" style="margin-top: var(--space-xl)">
+        ${field("Anything else?", `<textarea class="textarea" id="g-text" data-bind="goal.text" rows="2" placeholder="In your own words">${esc(g.text)}</textarea>`, "", "g-text")}
+        ${field("What should it text when you can’t answer?", `<textarea class="textarea" id="g-reply" data-bind="goal.reply" rows="3">${esc(g.reply)}</textarea>`, `Sent after <strong>${g.wait} minutes</strong> with no answer from you.`, "g-reply")}
+        <input class="range" type="range" min="2" max="30" step="1" aria-label="Minutes to wait" data-bind="goal.wait" data-type="number" data-rerender value="${g.wait}">
+        ${switchCtl("Also text back when I miss a call", "goal.missed", g.missed)}
+      </div>
+      ${action(link("Next", next(s, "goal"), "btn btn--primary"), "Nothing is sent until you test it in the next step.")}
+    </div>`;
+  },
+  actions: { pick(s, el) { const g = el.dataset.g; const i = s.goal.picks.indexOf(g); if (i >= 0) s.goal.picks.splice(i, 1); else s.goal.picks.push(g); } },
+};
+
+/* ---------- 4 · Connect your phone ---------- */
+export const phone = {
+  id: "phone", title: "Connect your phone", addr: "traque.com/start/phone",
+  render(s) {
+    const p = s.phone; const android = p.device === "android";
+    const steps = android
+      ? [["Install the Traque app", "From the Play Store, on this phone."], ["Allow texts and calls", "Android asks twice. Say yes both times."], ["Pair it", p.step >= 2 ? `Type this code in the app: <span class="code">${SAMPLE.phone.slice(-4)}‑7</span>` : "You’ll get a short code to type in."], ["Send yourself a test", "Traque texts your number. You’ll see it arrive."]]
+      : [["Install the helper on your Mac", "iPhone needs a Mac that stays on. Still testing."], ["Allow Messages", "On the Mac, in System Settings."], ["Pair it", p.step >= 2 ? `Type this code in the helper: <span class="code">${SAMPLE.phone.slice(-4)}‑7</span>` : "You’ll get a short code to type in."], ["Send yourself a test", "Traque texts your number. You’ll see it arrive."]];
+    const labels = android ? ["I installed it", "I allowed it", "Check pairing", "Send a test text"] : ["I installed it", "I allowed it", "Check pairing", "Send a test text"];
+    const stateRow = `<div class="row row--plain"><span class="row__body"><span class="row__title">Your phone · ${esc(SAMPLE.phone)}</span><span class="row__sub">Your number stays with your carrier.</span></span><span class="row__end">${status(p.tested ? "connected" : p.state === "connected" ? "waiting" : !android ? "testing" : p.state)}</span></div>`;
+    return `<div class="screen">
+      ${head(s, "phone", "Connect your phone", "Traque watches for missed work texts and calls on this phone.")}
+      <div class="choices" role="radiogroup" aria-label="Which phone">${choice("Android", "", { action: "device", attrs: 'data-d="android"', on: android })}${choice("iPhone", "Needs a Mac. Still testing.", { action: "device", attrs: 'data-d="iphone"', on: !android })}</div>
+      <div class="stack" style="margin-top: var(--space-xl)">
+        ${stateRow}
+        <ol class="steps">${steps.map(([t, sub], i) => `<li style="${i > p.step ? "opacity: .5" : ""}"><span class="n">${i < p.step || (i === 3 && p.tested) ? "✓" : i + 1}</span><span><strong>${t}</strong><br><span class="small muted">${sub}</span></span></li>`).join("")}</ol>
+        ${p.tested ? note("green", `<strong>Got it.</strong> The test text arrived. Traque is on for ${esc(s.biz.name)}.`) : p.step === 3 ? note("", `This one real text goes to <strong>your</strong> number only.`) : ""}
+      </div>
+      ${p.tested ? action(link("Next", next(s, "phone"), "btn btn--primary"))
+        : action(btn(labels[p.step], "step", { kind: "btn--primary" }), p.step === 2 ? "We check from our side. It only says Connected once the check passes." : "", `<a class="linkline" href="${next(s, "phone")}">Do this later</a>`)}
+    </div>`;
+  },
+  actions: {
+    device(s, el) { s.phone.device = el.dataset.d; s.phone.step = 0; s.phone.state = "not-connected"; s.phone.tested = false; },
+    async step(s, el) {
+      const p = s.phone;
+      if (p.step === 2) { await simulate(el, 1100); p.state = "connected"; p.step = 3; return; }
+      if (p.step === 3) { await simulate(el, 1300); p.tested = true; return; }
+      await simulate(el, 500); p.step += 1;
+    },
+  },
+};
+
+/* ---------- 5 · Connect other services ---------- */
+export const other = {
+  id: "other", title: "Connect other services", addr: "traque.com/start/services",
+  render(s) {
+    const co = company();
+    const tab = !co && s.recTab === "company" ? "traque" : s.recTab;
+    const coList = co ? [...TOOLS, ...RECOMMENDED.filter(r => s.coAdded.includes(r.id) && !TOOLS.some(t => t.id === r.id))] : [];
+    const coRecs = coList.map(t => { const pay = s.tools[t.id]?.pay || "suggest"; return { id: "co-" + t.id, name: t.name, sub: pay === "suggest" ? "Your company suggests it. You pay." : pay === "match" ? "Your company matches what you spend." : "Your company pays up to a set amount." }; });
+    const mine = [...RECOMMENDED, ...coRecs].filter(r => s.added.includes(r.id));
+    const list = tab === "traque" ? RECOMMENDED : tab === "company" ? coRecs : mine;
+    const addRow = (r) => { const on = s.added.includes(r.id); return `<div class="row"><span class="row__body"><span class="row__title">${esc(r.name)}</span><span class="row__sub">${esc(r.sub)}</span></span><span class="row__end">${on ? `${status("not-connected", "On your list")}${btn("Remove", "unadd", { kind: "btn--quiet btn--sm", attrs: `data-id="${r.id}"` })}` : btn("Add", "add", { kind: "btn--sm", attrs: `data-id="${r.id}"` })}</span></div>`; };
+    return `<div class="screen">
+      ${head(s, "other", "Connect other services", "All optional. Your phone is the only one Traque needs.")}
+      <div class="rows">${OTHER.map(o => { const st = s.other[o.id]; return `<div class="row"><span class="row__body"><span class="row__title">${esc(o.name)}</span><span class="row__sub">${esc(o.sub)}</span></span><span class="row__end">${status(st)}${st === "connected" ? btn("Remove", "off", { kind: "btn--quiet btn--sm", attrs: `data-id="${o.id}"` }) : st === "waiting" ? btn("Check", "check", { kind: "btn--sm", attrs: `data-id="${o.id}"` }) : btn("Connect", "on", { kind: "btn--sm", attrs: `data-id="${o.id}"` })}</span></div>`; }).join("")}</div>
+      ${co && s.shared.length ? `<div class="stack-sm" style="margin-top: var(--space-xl)"><h2>Set up by your company</h2><p class="small muted">Nothing to sign in to. ${esc(s.biz.name)} connected these for the team.</p>
+        <div class="rows">${s.shared.map(c => `<div class="row"><span class="row__body"><span class="row__title">${esc(c.name)}</span><span class="row__sub">${esc(c.does)}</span></span><span class="row__end">${status(c.state)}</span></div>`).join("")}</div></div>` : ""}
+      <div class="stack-sm" style="margin-top: var(--space-xl)">
+        <h2>Skills and services, recommended by</h2>
+        <div class="seg" role="tablist" aria-label="Recommended by">${[["traque", "Traque"], ...(co ? [["company", "Your company"]] : []), ["mine", `You${mine.length ? ` (${mine.length})` : ""}`]].map(([k, l]) => `<button type="button" role="tab" aria-selected="${tab === k}" class="seg__btn ${tab === k ? "is-active" : ""}" data-action="tab" data-tab="${k}">${l}</button>`).join("")}</div>
+        <p class="small muted">${tab === "traque" ? "A short list Traque suggests for your trade. One tap adds it to your list. Nothing is connected until you set it up later." : tab === "company" ? `What ${esc(s.biz.name)} suggests or pays toward.` : "What you’ve added. Set each one up when you’re ready."}</p>
+        <div class="rows">${list.length ? list.map(addRow).join("") : `<div class="row"><span class="row__body"><span class="row__sub">${tab === "mine" ? "Nothing yet. Add one from the other lists." : "Nothing here yet."}</span></span></div>`}</div>
+      </div>
+      ${action(link("Next", next(s, "other"), "btn btn--primary"), "You can add these any time under More.")}
+    </div>`;
+  },
+  actions: {
+    async on(s, el) { await simulate(el, 600); s.other[el.dataset.id] = "waiting"; toast("Sign in opened in a new tab (sample). Then press Check."); },
+    async check(s, el) { await simulate(el, 900); s.other[el.dataset.id] = "connected"; },
+    off(s, el) { s.other[el.dataset.id] = "not-connected"; },
+    tab(s, el) { s.recTab = el.dataset.tab; },
+    add(s, el) { if (!s.added.includes(el.dataset.id)) s.added.push(el.dataset.id); },
+    unadd(s, el) { s.added = s.added.filter(x => x !== el.dataset.id); },
+  },
+};
+
+/* ---------- 6 · Add people to your team ---------- */
+export const team = {
+  id: "team", title: "Add people to your team", addr: "traque.com/start/team",
+  render(s) {
+    const t = s.team; const co = company();
+    return `<div class="screen">
+      ${head(s, "team", "Add people to your team", co ? "Each person gets their own sign-in. They never see yours." : "Solo is just you. Add people by switching to Company.")}
+      ${co ? `<div class="stack">
+        ${field("Their phone or email", `<input class="input" id="inv" data-bind="team.draft" data-rerender value="${esc(t.draft)}" placeholder="(845) 555-0100" autocomplete="off">`, "", "inv")}
+        <div class="choices" role="radiogroup" aria-label="Role">${choice("Tech", "Sees today’s jobs and the how-to notes.", { action: "role", attrs: 'data-r="tech"', on: t.role === "tech" })}${choice("Office", "Sees all customers and jobs.", { action: "role", attrs: 'data-r="office"', on: t.role === "office" })}</div>
+        <div class="rows" style="margin-top: var(--space-lg)">${row(esc(SAMPLE.owner), "Owner · you", status("active"))}${t.invites.map((p, i) => row(esc(p.who), p.role, `${status(p.state)}${btn("Remove", "remove", { kind: "btn--quiet btn--sm", attrs: `data-i="${i}"` })}`)).join("")}</div>
+      </div>
+      ${action(btn("Send invite", "invite", { kind: "btn--primary", disabled: !t.draft.trim() }), "", `<a class="linkline" href="${next(s, "team")}">${t.invites.length ? "Next" : "Skip, it’s just me for now"}</a>`)}`
+      : `<div class="stack">
+        <div class="rows">${row(esc(SAMPLE.owner), "Owner · you", status("active"))}</div>
+        ${note("", `<strong>Company</strong> adds sign-ins for the people who answer with you, a team view, and a lower price per person. Price not set yet.`)}
+      </div>
+      ${action(btn("Switch to Company", "company", { kind: "btn--primary" }), "", `<a class="linkline" href="${next(s, "team")}">Keep it just me</a>`)}`}
+    </div>`;
+  },
+  actions: {
+    role(s, el) { s.team.role = el.dataset.r; },
+    invite(s) { const d = s.team.draft.trim(); if (!d) return false; s.team.invites.push({ who: d, role: s.team.role === "tech" ? "Tech" : "Office", state: "invited" }); s.team.draft = ""; },
+    remove(s, el) { s.team.invites.splice(Number(el.dataset.i), 1); },
+    company(s) { s.plan = "company"; s.biz.team = true; },
+  },
+};
+
+/* ---------- 7 (Company) · Company services ---------- */
+export const services = {
+  id: "services", title: "Company services", addr: "traque.com/start/company-services",
+  render(s) {
+    if (!company()) return `<div class="screen">${head(s, null, "Company services", "This step is for Company accounts.")}${note("", "On Solo you pay for your own tools. Switch to Company under More to set up services for a team.")}${action(link("Back", "#/done", "btn btn--primary"))}</div>`;
+    return `<div class="screen">
+      ${head(s, "services", "Company services", "Connect a service once for the whole team, then say how you’ll handle the cost.")}
+      <div class="stack-lg">${[...TOOLS, ...RECOMMENDED.filter(r => s.coAdded.includes(r.id) && !TOOLS.some(t => t.id === r.id)).map(r => ({ ...r, sample: true }))].map(t => { const c = s.tools[t.id] || { state: "not-connected", pay: "suggest", cap: "" }; return `<section class="stack-sm">
+        <div class="row row--plain"><span class="row__body"><span class="row__title">${esc(t.name)} ${t.sample ? status("sample") : ""}</span><span class="row__sub">${esc(t.sub)}</span></span><span class="row__end">${status(c.state)}${c.state === "connected" ? "" : c.state === "waiting" ? btn("Check", "check", { kind: "btn--sm", attrs: `data-id="${t.id}"` }) : btn("Connect", "on", { kind: "btn--sm", attrs: `data-id="${t.id}"` })}</span></div>
+        <div class="choices" role="radiogroup" aria-label="How you’ll pay for ${esc(t.name)}">${Object.entries(PAY).map(([k, l]) => choice(l, k === "match" ? "We pay for it. Dollar for dollar, up to a limit." : k === "amount" ? "We pay for it. Up to a set amount per person." : "They see it. They pay.", { action: "pay", attrs: `data-id="${t.id}" data-pay="${k}"`, on: c.pay === k })).join("")}</div>
+        ${c.pay !== "suggest" ? `<div class="prefix" style="max-width: 16rem"><span>${c.pay === "match" ? "Up to $" : "$"}</span><input class="input tabular" style="width: 5rem; flex: none" aria-label="Amount per person per month" inputmode="decimal" data-bind="tools.${t.id}.cap" value="${esc(c.cap)}"><span class="small muted" style="padding-inline: 0 var(--space-md)">a month each</span></div>` : ""}
+      </section>`; }).join("")}</div>
+      <section class="stack-sm" style="margin-top: var(--space-xl)">
+        <h2>Recommended by Traque</h2>
+        <p class="small muted">A short list for your trade. Tap Add to put one on the company list above. Nothing is connected by adding.</p>
+        <div class="rows">${RECOMMENDED.filter(r => !TOOLS.some(t => t.id === r.id)).map(r => { const on = s.coAdded.includes(r.id); return `<div class="row"><span class="row__body"><span class="row__title">${esc(r.name)}</span><span class="row__sub">${esc(r.sub)}</span></span><span class="row__end">${on ? `${status("not-connected", "On the list")}${btn("Remove", "counadd", { kind: "btn--quiet btn--sm", attrs: `data-id="${r.id}"` })}` : btn("Add", "coadd", { kind: "btn--sm", attrs: `data-id="${r.id}"` })}</span></div>`; }).join("")}</div>
+      </section>
+      <p class="small muted" style="margin-top: var(--space-xl)">Amounts are placeholders. thanks.io is a real service we haven’t connected yet. The others are samples.</p>
+      ${action(link("Next", next(s, "services"), "btn btn--primary"), "You can change any of this under More.")}
+    </div>`;
+  },
+  actions: {
+    pay(s, el) { s.tools[el.dataset.id].pay = el.dataset.pay; },
+    coadd(s, el) { const id = el.dataset.id; if (!s.coAdded.includes(id)) s.coAdded.push(id); if (!s.tools[id]) s.tools[id] = { state: "not-connected", pay: "suggest", cap: "" }; },
+    counadd(s, el) { s.coAdded = s.coAdded.filter(x => x !== el.dataset.id); delete s.tools[el.dataset.id]; },
+    async on(s, el) { await simulate(el, 600); s.tools[el.dataset.id].state = "waiting"; },
+    async check(s, el) { await simulate(el, 900); s.tools[el.dataset.id].state = "connected"; },
+  },
+};
+
+/* ---------- Done ---------- */
+export const done = {
+  id: "done", title: "You’re set", addr: "traque.com/home",
+  render(s) {
+    const on = s.phone.tested;
+    return `<div class="screen">
+      <div class="head"><h1>${on ? "Traque is on." : "Almost there."}</h1><p>${on ? `Missed work texts and calls get your reply after ${s.goal.wait} minutes.` : "Finish connecting your phone to turn it on."}</p></div>
+      <div class="rows">
+        ${row("Your phone", on ? `Connected · ${esc(SAMPLE.phone)}` : "Not connected yet", status(on ? "on" : "off"), "#/phone")}
+        ${row("Your skills", "Builds itself as you work.", "", "#/skills")}
+        ${row("Team view", company() ? "Who handled what, and what the team learned." : "Just you for now.", "", "#/teamview")}
+        ${row("Rent, sell or copy your know-how", s.view === "owner" ? "Owner only." : "Managed by your company.", "", "#/owner")}
+        ${row("More", "Plan, your public page, what Traque knows, and settings.", "", "#/more")}
+      </div>
+      ${action(link(on ? "Open team view" : "Connect your phone", on ? "#/teamview" : "#/phone", "btn btn--primary"))}
+    </div>`;
+  },
+  actions: {},
+};

@@ -1,0 +1,71 @@
+/* Hallmark · genre: modern-minimal (warmed) · macrostructure: Marquee Hero (home) + Letter (app) · theme: custom (tuned)
+ * vibe: "calm paper, one green, plain words, lots of air"
+ * paper oklch(97% 0.012 90) · accent oklch(37% 0.07 155) forest · Fraunces + IBM Plex Sans · outlier Geist Mono
+ * axes: light paper / high-contrast-serif display / chromatic-green accent
+ * nav: N1a wordmark + one link (the app genuinely has two destinations) · footer: Ft2 inline single line · enrichment: none
+ * redesign of v1 (Split Studio) · design.md at project root is the source of truth
+ * Hallmark · pre-emit critique: P5 H5 E4 S4 R5 V4
+ */
+:root {
+  --color-paper: oklch(97% 0.012 90);
+  --color-paper-2: oklch(94.5% 0.014 90);
+  --color-surface: oklch(99% 0.004 90);
+  --color-rule: oklch(86% 0.018 100);
+  --color-rule-2: oklch(77% 0.02 100);
+  --color-neutral: oklch(50% 0.02 150);
+  --color-muted: oklch(41% 0.02 150);
+  --color-ink: oklch(23% 0.025 150);
+  --color-ink-2: oklch(33% 0.025 150);
+
+  --color-accent: oklch(37% 0.07 155);
+  --color-accent-2: oklch(31% 0.07 155);
+  --color-accent-ink: oklch(98% 0.005 90);
+  --color-accent-soft: oklch(92.5% 0.03 150);
+  --color-focus: oklch(52% 0.12 155);
+
+  --color-amber: oklch(60% 0.12 70);
+  --color-amber-ink: oklch(40% 0.1 65);
+  --color-amber-soft: oklch(94% 0.045 82);
+  --color-green: oklch(42% 0.09 150);
+  --color-green-ink: oklch(32% 0.08 150);
+  --color-green-soft: oklch(92% 0.045 148);
+  --color-error: oklch(46% 0.16 28);
+  --color-error-soft: oklch(94% 0.03 28);
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-md: 1.25rem;
+  --text-lg: 1.625rem;
+  --text-xl: 2.125rem;
+  --text-display: clamp(2.5rem, 4vw + 1rem, 4.25rem);
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-micro: 120ms;
+
+  --rule: 1px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-pill: 999px;
+  --control-h: 3.25rem;
+  --page-gutter: clamp(1.25rem, 5vw, 3rem);
+  --col: 34rem;
+  --page-max: 64rem;
+
+  --z-sticky: 200;
+  --z-toast: 500;
+}

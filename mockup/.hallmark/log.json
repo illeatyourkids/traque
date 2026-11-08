@@ -1,0 +1,4 @@
+[
+  { "date": "2026-11-08", "macrostructure": "Marquee Hero (home) + Letter (app)", "theme": "custom", "theme_axes": "light / high-contrast-serif / chromatic-green", "vibe": "calm paper, one green, plain words, lots of air", "enrichment": "none", "nav": "N1a", "footer": "Ft2", "brief": "Traque v2 · simplified redesign of the clickable prototype to Justin’s 8-step sequence; design.md locked" },
+  { "date": "2026-11-08", "macrostructure": "Split Studio", "theme": "custom", "theme_axes": "light / high-contrast-serif / chromatic-green", "vibe": "warm paper, forest green, restrained borders, trade-honest", "enrichment": "none", "nav": "N9", "footer": "Ft2", "brief": "Traque v1 · clickable mock-only prototype" }
+]
