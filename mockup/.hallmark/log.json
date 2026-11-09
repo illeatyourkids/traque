@@ -1,0 +1,46 @@
+[
+  {
+    "date": "2026-11-08",
+    "rev": 5,
+    "summary": "iPhone path moves to a Mac helper (new 'On your Mac' location, grey chip); brain pages become one folder view of plain files (.tree); learned-lesson lists, remove and undo removed; share is invite by email; employee gates on company-level services.",
+    "tokens_added": [],
+    "components_added": [
+      ".tree",
+      ".place",
+      ".where--mac"
+    ]
+  },
+  {
+    "date": "2026-11-08",
+    "macrostructure": "Marquee Hero (home) + Letter (app) + Dirstarter-structured directory (public)",
+    "theme": "custom",
+    "theme_axes": "light / high-contrast-serif / chromatic-green",
+    "vibe": "calm paper, one green, plain words, lots of air",
+    "enrichment": "none",
+    "nav": "N1a (app) · N1b wordmark + two links + one button (directory)",
+    "footer": "Ft2",
+    "brief": "Traque v2 rev 3 · calendar step, Zapier build-it step with company key, AI doorman on public page, directory following licensed Dirstarter page structure (no code copied)"
+  },
+  {
+    "date": "2026-11-08",
+    "macrostructure": "Marquee Hero (home) + Letter (app)",
+    "theme": "custom",
+    "theme_axes": "light / high-contrast-serif / chromatic-green",
+    "vibe": "calm paper, one green, plain words, lots of air",
+    "enrichment": "none",
+    "nav": "N1a",
+    "footer": "Ft2",
+    "brief": "Traque v2 · simplified redesign of the clickable prototype to Justin’s 8-step sequence; design.md locked"
+  },
+  {
+    "date": "2026-11-08",
+    "macrostructure": "Split Studio",
+    "theme": "custom",
+    "theme_axes": "light / high-contrast-serif / chromatic-green",
+    "vibe": "warm paper, forest green, restrained borders, trade-honest",
+    "enrichment": "none",
+    "nav": "N9",
+    "footer": "Ft2",
+    "brief": "Traque v1 · clickable mock-only prototype"
+  }
+]
