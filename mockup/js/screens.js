@@ -33,10 +33,12 @@ export const zapierKeyActions = {
 };
 export function stepOf(s, id) { const list = SETUP(s); const i = list.indexOf(id); return i < 0 ? null : { n: i + 1, of: list.length, prev: list[i - 1], next: list[i + 1] || "done" }; }
 
+// Steps that happen inside the owner's AI chat. They have no Back link: in a chat you just say "go back".
+export const IN_AI = ["business", "goal", "calendar", "other"];
 function head(s, id, title, lead) {
-  const st = stepOf(s, id);
+  const st = stepOf(s, id); const inAI = IN_AI.includes(id);
   return `<div class="head">
-    ${st ? `<a class="back" href="#/${st.prev || "welcome"}">‹ Back</a><span class="stepcount">Step ${st.n} of ${st.of}</span>` : `<a class="back" href="#/done">‹ Back</a>`}
+    ${st ? `${inAI ? "" : `<a class="back" href="#/${st.prev || "welcome"}">‹ Back</a>`}<span class="stepcount">Step ${st.n} of ${st.of}</span>` : `<a class="back" href="#/done">‹ Back</a>`}
     <h1>${title}</h1>${lead ? `<p>${lead}</p>` : ""}
   </div>`;
 }
@@ -44,7 +46,7 @@ const next = (s, id) => `#/${stepOf(s, id)?.next || "done"}`;
 
 /* ---------- 0 · Welcome ---------- */
 export const welcome = {
-  id: "welcome", title: "Welcome", addr: "traque.com",
+  id: "welcome", title: "Welcome", addr: "traque.com", where: "web",
   render(s) {
     return `<div class="home">
       <section class="hero">
@@ -71,7 +73,7 @@ export const welcome = {
 
 /* ---------- 1 · Pick your AI ---------- */
 export const ai = {
-  id: "ai", title: "Pick your AI", addr: "traque.com/start",
+  id: "ai", title: "Pick your AI", addr: "traque.com/start", where: "web",
   render(s) {
     const st = s.aiState;
     return `<div class="screen">
@@ -98,7 +100,7 @@ export const ai = {
 
 /* ---------- 2 · Tell us your business ---------- */
 export const business = {
-  id: "business", title: "Tell us your business", addr: "traque.com/start/business",
+  id: "business", title: "Tell us your business", where: "ai", chat: { you: "Set up Traque for my business.", say: "Glad to. A few quick things about the shop first." },
   render(s) {
     const b = s.biz;
     return `<div class="screen">
@@ -124,7 +126,7 @@ export const business = {
 
 /* ---------- 3 · Why you’re using Traque ---------- */
 export const goal = {
-  id: "goal", title: "What you want it to do", addr: "traque.com/start/goal",
+  id: "goal", title: "What you want it to do", where: "ai", chat: { you: "That’s the shop.", say: "Saved. Now, what should Traque do for you?" },
   render(s) {
     const g = s.goal;
     return `<div class="screen">
@@ -144,7 +146,7 @@ export const goal = {
 
 /* ---------- 4 · Connect your calendar ---------- */
 export const calendar = {
-  id: "calendar", title: "Connect your calendar", addr: "traque.com/start/calendar",
+  id: "calendar", title: "Connect your calendar", where: "ai", chat: { you: "Next.", say: "Let’s connect your calendar, so I know when you’re booked. You sign in with Google or Outlook in a new tab; I only read it." },
   render(s) {
     const c = s.cal; const name = c.kind === "google" ? "Google Calendar" : "Outlook calendar";
     return `<div class="screen">
@@ -170,7 +172,7 @@ export const calendar = {
 
 /* ---------- 5 · Connect your phone ---------- */
 export const phone = {
-  id: "phone", title: "Connect your phone", addr: "traque.com/start/phone",
+  id: "phone", title: "Connect your phone", addr: "Traque app · Android (or the Mac helper for iPhone)", where: "phone",
   render(s) {
     const p = s.phone; const android = p.device === "android";
     const steps = android
@@ -205,7 +207,7 @@ export const phone = {
 const escRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const inText = (s, id) => { const a = askById(id); return !!a && s.zap.text.toLowerCase().includes(a.say.toLowerCase()); };
 export const other = {
-  id: "other", title: "Build the rest with Zapier", addr: "traque.com/start/build",
+  id: "other", title: "Build the rest with Zapier", where: "ai", chat: { you: "Build the rest.", say: "Tell me what you want connected, in your own words. I’ll set it up through Zapier and read back exactly what it’s allowed to do before anything is on." },
   render(s) {
     const co = company(); const emp = co && s.view !== "owner"; const z = s.zap;
     const tab = !co && s.recTab === "company" ? "traque" : s.recTab;
@@ -289,7 +291,7 @@ export const other = {
 
 /* ---------- 7 · Add people to your team ---------- */
 export const team = {
-  id: "team", title: "Add people to your team", addr: "traque.com/start/team",
+  id: "team", title: "Add people to your team", addr: "traque.com/start/team", where: "web",
   render(s) {
     const t = s.team; const co = company();
     return `<div class="screen">
@@ -317,7 +319,7 @@ export const team = {
 
 /* ---------- 8 (Company) · Company services ---------- */
 export const services = {
-  id: "services", title: "Company services", addr: "traque.com/start/company-services",
+  id: "services", title: "Company services", addr: "traque.com/start/company-services", where: "web",
   render(s) {
     if (!company()) return `<div class="screen">${head(s, null, "Company services", "This step is for Company accounts.")}${note("", "On Solo you pay for your own tools. Switch to Company under More to set up services for a team.")}${action(link("Back", "#/done", "btn btn--primary"))}</div>`;
     return `<div class="screen">
@@ -349,13 +351,14 @@ export const services = {
 
 /* ---------- Done ---------- */
 export const done = {
-  id: "done", title: "You’re set", addr: "traque.com/home",
+  id: "done", title: "You’re set", addr: "traque.com/home", where: "web",
   render(s) {
     const on = s.phone.tested;
     return `<div class="screen">
       <div class="head"><h1>${on ? "Traque is on." : "Almost there."}</h1><p>${on ? `Missed work texts and calls get your reply after ${s.goal.wait} minutes.` : "Finish connecting your phone to turn it on."}</p></div>
       <div class="rows">
         ${row("Your phone", on ? `Connected · ${esc(SAMPLE.phone)}` : "Not connected yet", status(on ? "on" : "off"), "#/phone")}
+        ${row("Open in your AI", `The pinned conversation “Traque — ${esc(s.biz.name)}”. Ask or change anything there.`, "", "#/goal")}
         ${row("Your skills", "Builds itself as you work.", "", "#/skills")}
         ${row("Team view", company() ? "Who handled what, and what the team learned." : "Just you for now.", "", "#/teamview")}
         ${row("Your public page", s.page.listed ? "Listed in the directory. Your doorman answers there." : "Not listed yet.", "", "#/page")}

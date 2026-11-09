@@ -30,6 +30,9 @@
   --color-green-ink: oklch(32% 0.08 150);
   --color-green-soft: oklch(92% 0.045 148);
   --color-error: oklch(46% 0.16 28);
+  /* prototype chrome only: the "inside your AI" label */
+  --color-ai-soft: oklch(90% 0.05 290);
+  --color-ai-ink: oklch(32% 0.09 290);
   --color-error-soft: oklch(94% 0.03 28);
 
   --font-display: "Fraunces", ui-serif, Georgia, serif;

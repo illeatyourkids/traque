@@ -12,6 +12,8 @@ modern-minimal, warmed: calm paper, one green, lots of air. Serif display kept f
 - Marketing (home): Marquee Hero. One big line, one button, then three plain steps and a two-column plan choice. No feature-card grid.
 - App screens: Letter. One narrow column (max 34rem), heading, one or two lines, the control, one primary button pinned at the bottom on phones.
 - Lists (More, Notes, Team, Activity): Letter with a plain row list. Rows are full-width tappable, one line each, chevron on the right.
+- Inside the owner's AI (steps 2, 3, 4, 6): a neutral chat frame. Top bar "Your AI" + pinned conversation title; the owner's message on the right; Traque's reply on the left as a short line plus a card with a 3px green left rule; a round message box at the bottom. No vendor logo or chrome. The card holds the Letter layout, with the action inline instead of pinned.
+- Where-it-lives labels (Inside your AI / On traque.com / On your phone) live only in the dark prototype bar and the walkthrough index. Never in product UI.
 - Directory (public, traque.com/directory and listings): follows the licensed Dirstarter template's page structure, restyled with these tokens. Home = centered intro → search + two selects → card grid → pager. Trades = breadcrumbs → intro → tiles (name — rule — count). Listing = breadcrumbs → two columns on wide screens (main 2/3: name row, tagline, phone CTA, doorman box, About, trade, tags, prev/next; side 1/3: what was checked, more pros nearby). The doorman is a bordered box with a plain transcript, chips for "who are you", one input. No robot or sparkle imagery.
 
 ## Theme (tokens in css/tokens.css)
