@@ -1,4 +1,4 @@
-import { SAMPLE, TEAM, LEARNED, SHARED_DOWN, PROCESSES, company } from "./state.js";
+import { SAMPLE, TEAM, PROCESSES, company } from "./state.js";
 import { esc, status, note, btn, link, field, choice, row, action, toast, simulate } from "./ui.js";
 
 const back = (to = "#/done", label = "Home") => `<a class="back" href="${to}">‹ ${label}</a>`;
@@ -8,12 +8,12 @@ export const teamview = {
   id: "teamview", title: "Team view", addr: "traque.com/team",
   render(s) {
     const co = company();
-    const learned = LEARNED.filter(l => !s.removed.includes(l.id));
     const people = co ? TEAM : [TEAM[0]];
+    const learners = 1 + s.team.invites.length;
     const mult = s.range === "week" ? 1 : 4;
     const total = people.reduce((a, p) => a + p.handled * mult, 0);
     return `<div class="screen">
-      <div class="head">${back()}<h1>Team view</h1><p>${co ? "Who handled what, and what the company learned from each person. Sample numbers." : "Just you for now. Sample numbers."}</p></div>
+      <div class="head">${back()}<h1>Team view</h1><p>${co ? "Who handled what. Sample numbers." : "Just you for now. Sample numbers."}</p></div>
       <div class="seg" role="tablist" aria-label="Range">${[["week", "This week"], ["month", "This month"]].map(([k, l]) => `<button type="button" role="tab" aria-selected="${s.range === k}" class="seg__btn ${s.range === k ? "is-active" : ""}" data-action="range" data-range="${k}">${l}</button>`).join("")}</div>
       <div class="nums" style="margin-top: var(--space-lg)">
         <div class="num"><span class="num__v tabular">${total}</span><span class="num__l">calls and texts handled</span></div>
@@ -23,11 +23,8 @@ export const teamview = {
       <section class="stack-sm" style="margin-top: var(--space-xl)"><h2>By person</h2>
         <div class="rows">${people.map(p => row(`${esc(p.who)} <span class="muted small">· ${esc(p.role)}</span>`, `${p.handled * mult} handled · ${p.booked * mult} booked · replies in ${esc(p.reply)}${co ? ` · $${esc(p.used)} of $${esc(p.cap)} in company credit` : ""}<div class="bar" style="margin-top: var(--space-xs)"><span style="width: ${Math.round((p.handled / 22) * 100)}%"></span></div>`)).join("")}</div>
       </section>
-      ${co ? `<section class="stack-sm" style="margin-top: var(--space-xl)"><h2>What the company learned from the team</h2><p class="small muted">Picked up on its own from each person’s notes. Only the lesson travels; customer details and sign-ins stay with the person.</p>
-        <div class="rows">${learned.length ? learned.map(l => `<div class="row"><span class="row__body"><span class="row__title" style="font-weight: 400">${esc(l.text)}</span><span class="row__sub">From ${esc(l.who)} · ${esc(l.date)}</span></span><span class="row__end"><button type="button" class="btn btn--quiet btn--sm" data-action="forget" data-id="${l.id}">Remove</button></span></div>`).join("") : `<div class="row"><span class="row__body"><span class="row__sub">Nothing new this week.</span></span></div>`}</div>
-      </section>
-      <section class="stack-sm" style="margin-top: var(--space-xl)"><h2>What the team gets from the company</h2><p class="small muted">Every person sees these how-to notes in their own Traque, kept up to date.</p>
-        <div class="rows">${SHARED_DOWN.map(n => row(esc(n), `Opened ${((n.length % 7) + 3) * mult} times · sample`, status("on", "Shared"))).join("")}</div>
+      ${co ? `<section class="stack-sm" style="margin-top: var(--space-xl)"><h2>The company brain</h2>
+        <div class="row row--plain"><span class="row__body"><span class="row__title">Learning from ${learners} ${learners === 1 ? "person" : "people"}, since Nov 2.</span><span class="row__sub">It picks things up from what each person does and keeps them as plain files. Customer details and sign-ins stay with the person. ${link("Open the brain", "#/skills", "linkline")}</span></span><span class="row__end">${status("on", "Learning")}</span></div>
       </section>`
       : `<section class="stack-sm" style="margin-top: var(--space-xl)">${note("", `With <strong>Company</strong>, each person has their own Traque, and what they learn on the job flows up here on its own. Price not set yet.`)}</section>`}
       ${co ? action(link("Add a person", "#/team", "btn btn--primary")) : action(btn("Switch to Company", "company", { kind: "btn--primary" }))}
@@ -35,7 +32,6 @@ export const teamview = {
   },
   actions: {
     range(s, el) { s.range = el.dataset.range; },
-    forget(s, el) { const id = el.dataset.id; s.removed.push(id); toast("Removed. Still in that person’s own notes.", { action: "Undo", onAction: () => { s.removed = s.removed.filter(x => x !== id); window.dispatchEvent(new Event("hashchange")); } }); },
     company(s) { s.plan = "company"; s.biz.team = true; },
   },
 };
@@ -82,12 +78,12 @@ export const clone = {
   render(s) {
     const c = s.clone; const n = Object.values(c.include).filter(Boolean).length;
     return `<div class="screen">
-      <div class="head">${back("#/owner", "Back")}<h1>Copy to a new location</h1><p>The new shop starts with your how-to notes and nothing else. It gets its own phone, prices and customers.</p></div>
+      <div class="head">${back("#/owner", "Back")}<h1>Copy to a new location</h1><p>The new shop starts with your how-to notes and keeps learning. It stays linked to this one, so what either shop learns, both get. It gets its own phone, prices and customers.</p></div>
       <div class="stack">
         ${field("Name of the new location", `<input class="input" id="cl-name" data-bind="clone.name" data-rerender value="${esc(c.name)}">`, "", "cl-name")}
         <div class="field"><span class="field__label">Which how-to notes</span><div class="choices">${PROCESSES.map(p => choice(p.name, p.ready ? "" : "Not finished. Copies as a draft.", { action: "tog", attrs: `data-p="${p.id}"`, on: !!c.include[p.id] })).join("")}</div></div>
-        ${goes}
-        ${c.done ? note("green", `<strong>Copied (sample).</strong> ${esc(c.name)} has its own Traque with ${n} how-to note${n === 1 ? "" : "s"}. Nothing else came along.`) : ""}
+        <div class="two"><div><h3>What goes</h3><ul class="plain"><li><span class="mark">✓</span>The how-to notes you pick</li><li><span class="mark">✓</span>Your text templates, blanks instead of names</li><li><span class="mark">✓</span>The link back: both shops keep learning together</li></ul></div><div><h3>What stays here</h3><ul class="plain"><li><span class="mark mark--no">–</span>Customer names and numbers</li><li><span class="mark mark--no">–</span>Your prices, hours and phone</li><li><span class="mark mark--no">–</span>Your sign-ins and your people</li></ul></div></div>
+        ${c.done ? note("green", `<strong>Copied (sample).</strong> ${esc(c.name)} has its own Traque with ${n} how-to note${n === 1 ? "" : "s"}, linked to this one. New lessons flow both ways from here on.`) : ""}
       </div>
       ${c.done ? action(btn("Copy another", "again", { kind: "btn--primary" })) : action(btn("Make the copy", "go", { kind: "btn--primary", disabled: !c.name.trim() || n === 0 }), "Price for a second location: $ — (not set).")}
     </div>`;

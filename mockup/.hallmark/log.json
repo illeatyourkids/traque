@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-11-08",
+    "rev": 5,
+    "summary": "iPhone path moves to a Mac helper (new 'On your Mac' location, grey chip); brain pages become one folder view of plain files (.tree); learned-lesson lists, remove and undo removed; share is invite by email; employee gates on company-level services.",
+    "tokens_added": [],
+    "components_added": [
+      ".tree",
+      ".place",
+      ".where--mac"
+    ]
+  },
+  {
+    "date": "2026-11-08",
     "macrostructure": "Marquee Hero (home) + Letter (app) + Dirstarter-structured directory (public)",
     "theme": "custom",
     "theme_axes": "light / high-contrast-serif / chromatic-green",

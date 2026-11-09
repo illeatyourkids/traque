@@ -9,13 +9,26 @@ export const TEAM = [
   { who: "Mike R.", role: "Tech", handled: 15, reply: "11 min", booked: 3, used: "9.00", cap: "35.00", lookups: 6 },
   { who: "Dana L.", role: "Office", handled: 9, reply: "3 min", booked: 1, used: "0.00", cap: "35.00", lookups: 9 },
 ];
-// What the company picked up from each person’s own notes. Automatic. Only the lesson travels.
-export const LEARNED = [
-  { id: "l1", who: "Mike R.", date: "Nov 7", text: "On mini-split no-cool calls, check the float switch first." },
-  { id: "l2", who: "Dana L.", date: "Nov 6", text: "When someone asks for a price on the phone, say we do a $— visit first and it counts toward the repair." },
-  { id: "l3", who: "Mike R.", date: "Nov 4", text: "Pine Island: allow 15 extra minutes. The bridge is closed weekdays till spring." },
-];
-export const SHARED_DOWN = ["How to answer a no-heat call", "After-hours text", "Price-question answer"];
+// The brain: plain Markdown files in folders. It learns from what people do; nothing is typed in by hand.
+// Only names and dates are shown. The contents are never listed in the product.
+export const BRAIN = {
+  since: "Nov 2",
+  owner: [
+    { name: "business", files: [["business.md", "Nov 2"], ["reply.md", "Nov 3"], ["hours-and-area.md", "Nov 2"]] },
+    { name: "how-to", files: [["after-hours-text.md", "Nov 4"], ["no-heat-call.md", "Nov 8"], ["price-question.md", "Nov 6"], ["spring-and-fall-reminders.md", "draft"]] },
+    { name: "skills", files: [["answering-no-heat-calls.md", "Nov 8"], ["quoting-a-visit.md", "Nov 6"], ["after-hours-texts.md", "Nov 4"], ["service-area.md", "Nov 2"]] },
+    { name: "jobs", files: [["this-week.md", "today"], ["2026-11.md", "today"]], private: "Yours only. Never shared, rented or copied." },
+  ],
+  company: [
+    { name: "team", files: [["mike-r/", "Nov 7"], ["dana-l/", "Nov 6"]], private: "Each person’s own brain. The company sees the folder, not what’s inside. Lessons flow up into how-to/ on their own." },
+  ],
+  employee: [
+    { name: "my-notes", files: [["today.md", "today"], ["pine-island.md", "Nov 4"]], private: "Mine only." },
+    { name: "my-jobs", files: [["this-week.md", "today"]], private: "Mine only." },
+    { name: "how-to", files: [["after-hours-text.md", "Nov 4"], ["no-heat-call.md", "Nov 8"], ["price-question.md", "Nov 6"]], readonly: "From the company. Kept up to date." },
+    { name: "skills", files: [["mini-split-no-cool.md", "Nov 7"], ["pine-island-drive-time.md", "Nov 4"]] },
+  ],
+};
 export const PROCESSES = [
   { id: "after-hours", name: "After-hours text", ready: true },
   { id: "no-heat", name: "How to answer a no-heat call", ready: true },
@@ -56,19 +69,6 @@ export const RECOMMENDED = [
   { id: "parts", name: "Parts lookup", sub: "Find a part number on the job." },
   { id: "mileage", name: "Mileage log", sub: "Keeps track of drives between jobs." },
 ];
-// Each person’s skill file writes itself as they use Traque. Sample content; nothing to fill in.
-export const SKILLS = {
-  owner: [
-    { when: "Nov 8", skill: "Answering no-heat calls", how: "You asked about the thermostat screen first on 6 calls. Traque now asks it for you." },
-    { when: "Nov 6", skill: "Quoting a visit", how: "You said “the visit price counts toward the repair” 4 times. It’s in your reply now." },
-    { when: "Nov 4", skill: "After-hours texts", how: "You replied to late texts the next morning by 8. Traque tells customers that." },
-    { when: "Nov 2", skill: "Service area", how: "You turned down 2 jobs across the river. Traque knows not to book them." },
-  ],
-  employee: [
-    { when: "Nov 7", skill: "Mini-split no-cool", how: "Mike checked the float switch first on 3 of 5 calls. Traque suggests it now." },
-    { when: "Nov 4", skill: "Pine Island drive time", how: "Mike added 15 minutes to 3 Pine Island jobs. Traque pads them now." },
-  ],
-};
 // Directory sample data. Owner-run, one-location home-service businesses. All sample.
 export const DIR_TRADES = ["Heating & air", "Plumbing", "Electrical", "Appliance repair", "Garage door repair", "Roofing", "Pest control", "Septic"];
 export const PROS = [
@@ -114,7 +114,8 @@ export const defaults = () => ({
   recTab: "traque",              // traque | company | mine
   added: [],                     // ids from ASKS the person tapped Add on
   coAdded: [],                   // Company services step: ids the company added from Traque’s list
-  shareState: "",
+  shareState: "",               // "" | open | sent
+  shareDraft: "", shareTo: "",
   shared: [
     { id: "s1", name: "Jobber", does: "See customers and add job notes", who: ["owner", "tech", "office"], state: "connected", when: "Nov 7" },
     { id: "s2", name: "Parts supplier (sample)", does: "Look up parts", who: ["owner", "tech"], state: "waiting", when: null },
@@ -123,7 +124,7 @@ export const defaults = () => ({
   team: { invites: [{ who: "Mike R.", role: "Tech", state: "active" }, { who: "Dana L.", role: "Office", state: "active" }], draft: "", role: "tech", skipped: false },
   view: "owner",                 // owner | employee
   range: "week",
-  removed: [],
+  brainClosed: [],              // folder names the person collapsed
   tools: { cards: { state: "connected", pay: "match", cap: "25" }, reviews: { state: "not-connected", pay: "amount", cap: "10" }, parts: { state: "not-connected", pay: "suggest", cap: "" } },
   rent: { process: "no-heat", shared: false },
   sell: { kind: "", prepared: false },

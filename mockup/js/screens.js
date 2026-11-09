@@ -134,7 +134,7 @@ export const goal = {
       <div class="choices">${GOALS.map(x => choice(x, "", { action: "pick", attrs: `data-g="${esc(x)}"`, on: g.picks.includes(x) })).join("")}</div>
       <div class="stack" style="margin-top: var(--space-xl)">
         ${field("Anything else?", `<textarea class="textarea" id="g-text" data-bind="goal.text" rows="2" placeholder="In your own words">${esc(g.text)}</textarea>`, "", "g-text")}
-        ${field("What should it text when you can’t answer?", `<textarea class="textarea" id="g-reply" data-bind="goal.reply" rows="3">${esc(g.reply)}</textarea>`, `Sent after <strong>${g.wait} minutes</strong> with no answer from you.`, "g-reply")}
+        ${field("What should it text when you can’t answer?", `<textarea class="textarea" id="g-reply" data-bind="goal.reply" rows="3">${esc(g.reply)}</textarea>`, `One reply for everything. Sent after <strong>${g.wait} minutes</strong> with no answer from you, from your own number, by whichever phone is connected: your Android phone, or your iPhone through the Mac.`, "g-reply")}
         <input class="range" type="range" min="2" max="30" step="1" aria-label="Minutes to wait" data-bind="goal.wait" data-type="number" data-rerender value="${g.wait}">
         ${switchCtl("Also text back when I miss a call", "goal.missed", g.missed)}
       </div>
@@ -171,33 +171,50 @@ export const calendar = {
 };
 
 /* ---------- 5 · Connect your phone ---------- */
+// Android: the Traque app on the phone. iPhone: nothing on the phone; the Traque helper runs on a Mac that stays on.
+// The iPhone path follows docs/skills/mac-iphone-bridge/SKILL.md and is unverified on a real Mac, so it says "Still testing".
 export const phone = {
-  id: "phone", title: "Connect your phone", addr: "Traque app · Android (or the Mac helper for iPhone)", where: "phone",
+  id: "phone", title: "Connect your phone",
+  addr: (s) => s.phone.device === "iphone" ? "Traque Mac helper · nothing is installed on the iPhone" : "Traque app · Android",
+  where: (s) => s.phone.device === "iphone" ? "mac" : "phone",
   render(s) {
     const p = s.phone; const android = p.device === "android";
+    const code = `<span class="code">${SAMPLE.phone.slice(-4)}‑7</span>`;
     const steps = android
-      ? [["Install the Traque app", "From the Play Store, on this phone."], ["Allow texts and calls", "Android asks twice. Say yes both times."], ["Pair it", p.step >= 2 ? `Type this code in the app: <span class="code">${SAMPLE.phone.slice(-4)}‑7</span>` : "You’ll get a short code to type in."], ["Send yourself a test", "Traque texts your number. You’ll see it arrive."]]
-      : [["Install the helper on your Mac", "iPhone needs a Mac that stays on. Still testing."], ["Allow Messages", "On the Mac, in System Settings."], ["Pair it", p.step >= 2 ? `Type this code in the helper: <span class="code">${SAMPLE.phone.slice(-4)}‑7</span>` : "You’ll get a short code to type in."], ["Send yourself a test", "Traque texts your number. You’ll see it arrive."]];
-    const labels = android ? ["I installed it", "I allowed it", "Check pairing", "Send a test text"] : ["I installed it", "I allowed it", "Check pairing", "Send a test text"];
-    const stateRow = `<div class="row row--plain"><span class="row__body"><span class="row__title">Your phone · ${esc(SAMPLE.phone)}</span><span class="row__sub">Your number stays with your carrier.</span></span><span class="row__end">${status(p.tested ? "connected" : p.state === "connected" ? "waiting" : !android ? "testing" : p.state)}</span></div>`;
+      ? [["Install the Traque app", "From the Play Store, on this phone."], ["Allow texts and calls", "Android asks twice. Say yes both times."], ["Pair it", p.step >= 2 ? `Type this code in the app: ${code}` : "You’ll get a short code to type in."], ["Send yourself a test", "Traque texts your number. You’ll see it arrive."]]
+      : [
+        ["Get the Traque Mac helper", "Download it on the Mac and open it. Plug the Mac in and set it to never sleep. Nothing goes on the iPhone."],
+        ["On the iPhone, let the Mac see texts and calls", `Two switches in Settings, no app:<br>· Settings › Apps › <strong>Messages</strong> › <strong>Text Message Forwarding</strong> › turn on your Mac.<br>· Settings › Apps › <strong>Phone</strong> › <strong>Calls on Other Devices</strong> › Allow, then turn on your Mac.<br><span class="muted">Both devices need the same Apple Account. If the Mac isn’t listed, turn iMessage off and on.</span>`],
+        ["Allow the helper on the Mac", "When macOS asks, allow <strong>Full Disk Access</strong> (to read your texts and call list) and <strong>control of Messages</strong> (to send your reply). The helper never asks for your Apple password."],
+        ["Run the self-test", "The helper texts your own number from the Mac. You’ll see it arrive on the iPhone."],
+      ];
+    const labels = android ? ["I installed it", "I allowed it", "Check pairing", "Send a test text"] : ["I opened it", "I turned them on", "I allowed them", "Run the self-test"];
+    const stateKey = p.tested ? "connected" : android ? (p.state === "connected" ? "waiting" : p.state) : (p.step > 0 ? "testing" : "not-connected");
+    const stateRow = `<div class="row row--plain"><span class="row__body"><span class="row__title">Your phone · ${esc(SAMPLE.phone)}</span><span class="row__sub">Your number stays with your carrier.${android ? "" : " Replies go out from the Mac, through your iPhone’s number."}</span></span><span class="row__end">${status(stateKey)}</span></div>`;
+    const macNote = android ? "" : note("", `<strong>Still testing.</strong> The Mac has to stay on, awake and near the iPhone (same Wi‑Fi) for it to see missed calls. Texts work as long as the iPhone has signal.`);
+    const done = android
+      ? note("green", `<strong>Got it.</strong> The test text arrived. Traque is on for ${esc(s.biz.name)}.`)
+      : note("green", `<strong>Got it.</strong> The test text arrived on your iPhone. Text replies are on. <strong>Missed-call texts start as drafts you approve</strong> until the call test passes.`);
     return `<div class="screen">
-      ${head(s, "phone", "Connect your phone", "Traque watches for missed work texts and calls on this phone.")}
+      ${head(s, "phone", "Connect your phone", android ? "Traque watches for missed work texts and calls on this phone." : "Nothing is installed on the iPhone. The setup happens on a Mac that stays on.")}
       <div class="choices" role="radiogroup" aria-label="Which phone">${choice("Android", "", { action: "device", attrs: 'data-d="android"', on: android })}${choice("iPhone", "Needs a Mac. Still testing.", { action: "device", attrs: 'data-d="iphone"', on: !android })}</div>
       <div class="stack" style="margin-top: var(--space-xl)">
+        ${android ? "" : `<h2 class="place">On your Mac</h2>`}
         ${stateRow}
         <ol class="steps">${steps.map(([t, sub], i) => `<li style="${i > p.step ? "opacity: .5" : ""}"><span class="n">${i < p.step || (i === 3 && p.tested) ? "✓" : i + 1}</span><span><strong>${t}</strong><br><span class="small muted">${sub}</span></span></li>`).join("")}</ol>
-        ${p.tested ? note("green", `<strong>Got it.</strong> The test text arrived. Traque is on for ${esc(s.biz.name)}.`) : p.step === 3 ? note("", `This one real text goes to <strong>your</strong> number only.`) : ""}
+        ${p.tested ? done : p.step === 3 ? note("", `This one real text goes to <strong>your</strong> number only.`) : ""}
+        ${macNote}
       </div>
       ${p.tested ? action(link("Next", next(s, "phone"), "btn btn--primary"))
-        : action(btn(labels[p.step], "step", { kind: "btn--primary" }), p.step === 2 ? "We check from our side. It only says Connected once the check passes." : "", `<a class="linkline" href="${next(s, "phone")}">Do this later</a>`)}
+        : action(btn(labels[p.step], "step", { kind: "btn--primary" }), android && p.step === 2 ? "We check from our side. It only says Connected once the check passes." : !android && p.step === 3 ? "It only says Connected once the test text lands on your iPhone." : "", `<a class="linkline" href="${next(s, "phone")}">Do this later</a>`)}
     </div>`;
   },
   actions: {
     device(s, el) { s.phone.device = el.dataset.d; s.phone.step = 0; s.phone.state = "not-connected"; s.phone.tested = false; },
     async step(s, el) {
       const p = s.phone;
-      if (p.step === 2) { await simulate(el, 1100); p.state = "connected"; p.step = 3; return; }
-      if (p.step === 3) { await simulate(el, 1300); p.tested = true; return; }
+      if (p.device === "android" && p.step === 2) { await simulate(el, 1100); p.state = "connected"; p.step = 3; return; }
+      if (p.step === 3) { await simulate(el, 1300); p.tested = true; p.state = "connected"; return; }
       await simulate(el, 500); p.step += 1;
     },
   },
@@ -322,6 +339,8 @@ export const services = {
   id: "services", title: "Company services", addr: "traque.com/start/company-services", where: "web",
   render(s) {
     if (!company()) return `<div class="screen">${head(s, null, "Company services", "This step is for Company accounts.")}${note("", "On Solo you pay for your own tools. Switch to Company under More to set up services for a team.")}${action(link("Back", "#/done", "btn btn--primary"))}</div>`;
+    // Only the company adds company-level services. Employees see what's offered in their own build step and can add personal ones there.
+    if (s.view !== "owner") return `<div class="screen">${head(s, null, "Company services", "Managed by your company.")}${note("", `${esc(s.biz.name)} picks which services the company pays toward. You’ll see them under “Your company” when you build with Zapier, and you can always add your own.`)}${action(link("Build with Zapier", "#/other", "btn btn--primary"))}</div>`;
     return `<div class="screen">
       ${head(s, "services", "Company services", "One Zapier account for the company. Then connect each service once for the whole team and say how you’ll handle the cost.")}
       ${zapierKey(s)}
@@ -359,11 +378,11 @@ export const done = {
       <div class="rows">
         ${row("Your phone", on ? `Connected · ${esc(SAMPLE.phone)}` : "Not connected yet", status(on ? "on" : "off"), "#/phone")}
         ${row("Open in your AI", `The pinned conversation “Traque — ${esc(s.biz.name)}”. Ask or change anything there.`, "", "#/goal")}
-        ${row("Your skills", "Builds itself as you work.", "", "#/skills")}
+        ${row(company() ? "The company brain" : "Your brain", "Learning since Nov 2. Plain files, written by what you do.", "", "#/skills")}
         ${row("Team view", company() ? "Who handled what, and what the team learned." : "Just you for now.", "", "#/teamview")}
         ${row("Your public page", s.page.listed ? "Listed in the directory. Your doorman answers there." : "Not listed yet.", "", "#/page")}
         ${row("Rent, sell or copy your know-how", s.view === "owner" ? "Owner only." : "Managed by your company.", "", "#/owner")}
-        ${row("More", "Plan, your public page, what Traque knows, and settings.", "", "#/more")}
+        ${row("More", "Plan, your public page, your doorman, and settings.", "", "#/more")}
       </div>
       ${action(link(on ? "Open team view" : "Connect your phone", on ? "#/teamview" : "#/phone", "btn btn--primary"))}
     </div>`;
